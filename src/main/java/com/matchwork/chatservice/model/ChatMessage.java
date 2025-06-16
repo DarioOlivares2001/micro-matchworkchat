@@ -19,17 +19,20 @@ public class ChatMessage {
     
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", timezone = "UTC")
     private Instant timestamp;
+
+    private boolean seen = false;
     
     public ChatMessage() {
         this.timestamp = Instant.now();
     }
     
-    public ChatMessage(Long senderId, Long receiverId, String content, MessageType type) {
+    public ChatMessage(Long senderId, Long receiverId, String content, MessageType type, boolean seen) {
         this();
         this.senderId = senderId;
         this.receiverId = receiverId;
         this.content = content;
         this.type = type;
+        this.seen = seen;
     }
     
     // Getters y Setters
@@ -82,6 +85,18 @@ public class ChatMessage {
     }
     
     public enum MessageType {
-        CHAT, JOIN, LEAVE
+        CHAT, JOIN, LEAVE, VIDEO_CALL // Agregar VIDEO_CALL
     }
+
+    public boolean isSeen() {
+        return seen;
+    }
+
+    public void setSeen(boolean seen) {
+        this.seen = seen;
+    }
+
+
+    
+
 }

@@ -1,0 +1,19 @@
+# /etc/chatservice/application.yml
+spring:
+  application:
+    name: chatservice
+  data:
+    mongodb:
+      uri: "mongodb+srv://chatuser:Olivia1980@cluster0.hinvg72.mongodb.net/chatdb?retryWrites=true&w=majority"
+  websocket:
+    allowed-origins: "*"
+
+server:
+  port: 8082
+
+logging:
+  level:
+    org.springframework.data.mongodb: DEBUG
+    org.mongodb.driver: DEBUG
+    org.springframework.web.socket: DEBUG
+    org.springframework.messaging: DEBUG

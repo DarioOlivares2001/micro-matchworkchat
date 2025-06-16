@@ -1,9 +1,13 @@
 package com.matchwork.chatservice.controller;
 
+import com.matchwork.chatservice.dto.SenderUnreadCount;
 import com.matchwork.chatservice.model.ChatMessage;
+import com.matchwork.chatservice.model.ChatMessage.MessageType;
 import com.matchwork.chatservice.repository.ChatMessageRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+
+import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -11,9 +15,20 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 
 @RestController
-@CrossOrigin(origins = "*")
+@CrossOrigin(
+  origins = "*",
+  allowedHeaders = "*",
+  methods = {
+    RequestMethod.GET,
+    RequestMethod.POST,
+    RequestMethod.PUT,
+    RequestMethod.DELETE,
+    RequestMethod.OPTIONS
+  }
+)
 public class ChatController {
 
     private final ChatMessageRepository repository;
@@ -28,72 +43,37 @@ public class ChatController {
         this.objectMapper.registerModule(new JavaTimeModule());
     }
 
-    /*@MessageMapping("/chat.sendPrivateMessage")
+
+   @MessageMapping("/chat.sendPrivateMessage")
     public void sendPrivateMessage(@Payload ChatMessage message) {
         try {
             System.out.println("=== MENSAJE RECIBIDO ===");
-            System.out.println("SenderId: " + message.getSenderId());
-            System.out.println("ReceiverId: " + message.getReceiverId());
-            System.out.println("Content: " + message.getContent());
-            System.out.println("Type: " + message.getType());
+            System.out.println("Tipo: " + message.getType());
+            System.out.println("De: " + message.getSenderId() + " Para: " + message.getReceiverId());
+            System.out.println("Contenido: " + message.getContent());
             
-            // Validación de campos requeridos
-            if (message.getSenderId() == null || message.getReceiverId() == null || 
-                message.getContent() == null || message.getContent().trim().isEmpty()) {
-                System.err.println("ERROR: Campos requeridos faltantes");
-                return;
-            }
-            
-            // Establecer valores por defecto
+            // Establecer timestamp si no viene
             if (message.getTimestamp() == null) {
                 message.setTimestamp(Instant.now());
             }
-            if (message.getType() == null) {
-                message.setType(ChatMessage.MessageType.CHAT);
+            
+            // Guardar en BD (excepto para VIDEO_CALL si no quieres persistirlos)
+            if (message.getType() != MessageType.VIDEO_CALL) {
+                repository.save(message);
             }
             
-            // Guardar en MongoDB
-            ChatMessage saved = repository.save(message);
-            System.out.println("✅ Mensaje guardado en BD con ID: " + saved.getId());
+            // Construir tópicos
+            String receiverTopic = "/topic/private." + message.getReceiverId();
+            String senderTopic = "/topic/private." + message.getSenderId();
             
-            // Convertir a JSON para el envío
-            String messageJson = objectMapper.writeValueAsString(saved);
-            
-            // Enviar al receptor
-            messagingTemplate.convertAndSendToUser(
-                message.getReceiverId().toString(),
-                "/queue/messages",
-                messageJson
-            );
-            System.out.println("✅ Mensaje enviado al receptor: " + message.getReceiverId());
-            
-            // Enviar confirmación al emisor
-            messagingTemplate.convertAndSendToUser(
-                message.getSenderId().toString(),
-                "/queue/messages",
-                messageJson
-            );
-            System.out.println("✅ Mensaje enviado al emisor: " + message.getSenderId());
+            // Enviar mensaje
+            messagingTemplate.convertAndSend(receiverTopic, message);
+            messagingTemplate.convertAndSend(senderTopic, message);
             
         } catch (Exception e) {
             System.err.println("❌ ERROR al procesar mensaje: " + e.getMessage());
             e.printStackTrace();
         }
-    }*/
-
-    @MessageMapping("/chat.sendPrivateMessage")
-    public void sendPrivateMessage(@Payload ChatMessage message) {
-        // 1) Guarda en BD
-        ChatMessage saved = repository.save(message);
-
-        // 2) Construye tus tópicos “a mano”
-        String receiverTopic = "/topic/private." + saved.getReceiverId();
-        String senderTopic   = "/topic/private." + saved.getSenderId();
-
-        // 3) Emite a cada uno
-        messagingTemplate.convertAndSend(receiverTopic, saved);
-        // (opcional) eco al emisor
-        messagingTemplate.convertAndSend(senderTopic, saved);
     }
 
     @MessageMapping("/chat.sendMessage")
@@ -148,4 +128,79 @@ public class ChatController {
             return "❌ Error de conexión: " + e.getMessage();
         }
     }
+
+
+
+        /** 1) Contar mensajes no vistos totales */
+    @GetMapping("/messages/unread/count/{userId}")
+    public Map<String, Long> getUnreadCount(@PathVariable Long userId) {
+        long total = repository.countByReceiverIdAndSeenFalse(userId);
+        return Map.of("total", total);
+    }
+
+    /** 2) Contar no vistos por emisor (para sidebar) */
+    @GetMapping("/messages/unread/by-sender/{userId}")
+    public List<SenderUnreadCount> getUnreadBySender(@PathVariable Long userId) {
+        return repository.countUnreadBySender(userId);
+    }
+
+    /** 3) Marcar como vistos todos de sender → receiver */
+    @PutMapping("/messages/{senderId}/{receiverId}/seen")
+    public ResponseEntity<Void> markAsSeen(
+        @PathVariable Long senderId,
+        @PathVariable Long receiverId) {
+
+        repository.markAsSeen(senderId, receiverId);
+        // opcional: notificar por WS al emisor que sus mensajes ya fueron vistos
+        messagingTemplate.convertAndSend(
+        "/topic/read.receipt." + senderId,
+        Map.of("by", receiverId)
+        );
+        return ResponseEntity.noContent().build();
+    }
+
+    /** 4) WebSocket para read‐receipt (opcional) */
+    @MessageMapping("/chat.readReceipt")
+    public void onReadReceipt(@Payload ReadReceipt receipt) {
+        // receipt tiene senderId, receiverId
+        repository.markAsSeen(receipt.getSenderId(), receipt.getReceiverId());
+        // reenviar confirmación
+        messagingTemplate.convertAndSendToUser(
+        receipt.getSenderId().toString(),
+        "/queue/read.receipt",
+        receipt
+        );
+    }
+
+
+     /** 5) Devuelve todos los interlocutores de userId */
+    @GetMapping("/api/messages/conversations/{userId}")
+    public List<Long> getConversationPartners(@PathVariable Long userId) {
+        return repository.findDistinctConversationPartners(userId);
+    }
+
+
+    public static class ReadReceipt {
+        private Long senderId;
+        private Long receiverId;
+
+        public Long getSenderId() {
+            return senderId;
+        }
+        public void setSenderId(Long senderId) {
+            this.senderId = senderId;
+        }
+        public Long getReceiverId() {
+            return receiverId;
+        }
+        public void setReceiverId(Long receiverId) {
+            this.receiverId = receiverId;
+        }
+
+        
+    }
+
+
+
+
 }
