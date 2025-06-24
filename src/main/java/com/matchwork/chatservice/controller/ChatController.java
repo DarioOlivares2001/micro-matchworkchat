@@ -18,17 +18,6 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@CrossOrigin(
-  origins = "*",
-  allowedHeaders = "*",
-  methods = {
-    RequestMethod.GET,
-    RequestMethod.POST,
-    RequestMethod.PUT,
-    RequestMethod.DELETE,
-    RequestMethod.OPTIONS
-  }
-)
 public class ChatController {
 
     private final ChatMessageRepository repository;
@@ -145,17 +134,23 @@ public class ChatController {
     }
 
     /** 3) Marcar como vistos todos de sender → receiver */
-    @PutMapping("/messages/{senderId}/{receiverId}/seen")
+   @PutMapping("/messages/{senderId}/{receiverId}/seen")
     public ResponseEntity<Void> markAsSeen(
         @PathVariable Long senderId,
         @PathVariable Long receiverId) {
 
         repository.markAsSeen(senderId, receiverId);
-        // opcional: notificar por WS al emisor que sus mensajes ya fueron vistos
-        messagingTemplate.convertAndSend(
-        "/topic/read.receipt." + senderId,
-        Map.of("by", receiverId)
+
+
+        Map<String, Long> notification = Map.of(
+                "senderId", senderId,
+                "receiverId", receiverId,
+                "readerId", receiverId
         );
+
+
+        messagingTemplate.convertAndSend("/topic/read.receipt." + senderId, notification);
+        messagingTemplate.convertAndSend("/topic/read.receipt." + receiverId, notification);
         return ResponseEntity.noContent().build();
     }
 

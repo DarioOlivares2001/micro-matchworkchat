@@ -4,12 +4,12 @@ spring:
     name: chatservice
   data:
     mongodb:
-      uri: "mongodb+srv://chatuser:Olivia1980@cluster0.hinvg72.mongodb.net/chatdb?retryWrites=true&w=majority"
+      uri: ${MONGODB_URI}
   websocket:
     allowed-origins: "*"
 
 server:
-  port: 8082
+  port: 8080
 
 logging:
   level:
