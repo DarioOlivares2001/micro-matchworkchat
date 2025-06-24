@@ -41,26 +41,26 @@ public class ChatController {
             System.out.println("De: " + message.getSenderId() + " Para: " + message.getReceiverId());
             System.out.println("Contenido: " + message.getContent());
             
-            // Establecer timestamp si no viene
+            
             if (message.getTimestamp() == null) {
                 message.setTimestamp(Instant.now());
             }
             
-            // Guardar en BD (excepto para VIDEO_CALL si no quieres persistirlos)
+           
             if (message.getType() != MessageType.VIDEO_CALL) {
                 repository.save(message);
             }
             
-            // Construir tópicos
+           
             String receiverTopic = "/topic/private." + message.getReceiverId();
             String senderTopic = "/topic/private." + message.getSenderId();
             
-            // Enviar mensaje
+           
             messagingTemplate.convertAndSend(receiverTopic, message);
             messagingTemplate.convertAndSend(senderTopic, message);
             
         } catch (Exception e) {
-            System.err.println("❌ ERROR al procesar mensaje: " + e.getMessage());
+            System.err.println("ERROR al procesar mensaje: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -70,7 +70,7 @@ public class ChatController {
         try {
             System.out.println("=== MENSAJE PÚBLICO RECIBIDO ===");
             
-            // Establecer valores por defecto
+            
             if (message.getTimestamp() == null) {
                 message.setTimestamp(Instant.now());
             }
@@ -78,18 +78,18 @@ public class ChatController {
                 message.setType(ChatMessage.MessageType.CHAT);
             }
             
-            // Guardar en MongoDB
+    
             ChatMessage saved = repository.save(message);
-            System.out.println("✅ Mensaje público guardado: " + saved.getId());
+            System.out.println("Mensaje público guardado: " + saved.getId());
             
-            // Convertir a JSON para el envío
+        
             String messageJson = objectMapper.writeValueAsString(saved);
             
-            // Enviar a todos los suscritos
+       
             messagingTemplate.convertAndSend("/topic/public", messageJson);
             
         } catch (Exception e) {
-            System.err.println("❌ Error al enviar mensaje público: " + e.getMessage());
+            System.err.println("Error al enviar mensaje público: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -99,10 +99,10 @@ public class ChatController {
                                        @PathVariable Long receiverId) {
         try {
             List<ChatMessage> messages = repository.findConversationBetweenUsers(senderId, receiverId);
-            System.out.println("📚 Mensajes encontrados: " + messages.size());
+            System.out.println("Mensajes encontrados: " + messages.size());
             return messages;
         } catch (Exception e) {
-            System.err.println("❌ Error al obtener mensajes: " + e.getMessage());
+            System.err.println("Error al obtener mensajes: " + e.getMessage());
             e.printStackTrace();
             return List.of();
         }
@@ -112,28 +112,27 @@ public class ChatController {
     public String test() {
         try {
             long count = repository.count();
-            return "✅ Conectado a MongoDB. Total de mensajes: " + count;
+            return "Conectado a MongoDB. Total de mensajes: " + count;
         } catch (Exception e) {
-            return "❌ Error de conexión: " + e.getMessage();
+            return "Error de conexión: " + e.getMessage();
         }
     }
 
 
 
-        /** 1) Contar mensajes no vistos totales */
+   
     @GetMapping("/messages/unread/count/{userId}")
     public Map<String, Long> getUnreadCount(@PathVariable Long userId) {
         long total = repository.countByReceiverIdAndSeenFalse(userId);
         return Map.of("total", total);
     }
 
-    /** 2) Contar no vistos por emisor (para sidebar) */
+ 
     @GetMapping("/messages/unread/by-sender/{userId}")
     public List<SenderUnreadCount> getUnreadBySender(@PathVariable Long userId) {
         return repository.countUnreadBySender(userId);
     }
 
-    /** 3) Marcar como vistos todos de sender → receiver */
    @PutMapping("/messages/{senderId}/{receiverId}/seen")
     public ResponseEntity<Void> markAsSeen(
         @PathVariable Long senderId,
@@ -154,12 +153,12 @@ public class ChatController {
         return ResponseEntity.noContent().build();
     }
 
-    /** 4) WebSocket para read‐receipt (opcional) */
+
     @MessageMapping("/chat.readReceipt")
     public void onReadReceipt(@Payload ReadReceipt receipt) {
-        // receipt tiene senderId, receiverId
+  
         repository.markAsSeen(receipt.getSenderId(), receipt.getReceiverId());
-        // reenviar confirmación
+
         messagingTemplate.convertAndSendToUser(
         receipt.getSenderId().toString(),
         "/queue/read.receipt",
@@ -168,7 +167,7 @@ public class ChatController {
     }
 
 
-     /** 5) Devuelve todos los interlocutores de userId */
+
     @GetMapping("/api/messages/conversations/{userId}")
     public List<Long> getConversationPartners(@PathVariable Long userId) {
         return repository.findDistinctConversationPartners(userId);
