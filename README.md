@@ -46,7 +46,7 @@ Estructura de mensaje
 {
   "remitente": "usuario@email.com",
   "destinatario": "empresa@email.com",
-  "emisorId" : "user223",
+  "emisorId" : "user22f",
   "receptorId" : "user485"
   "contenido": "Hola, estoy interesado en la oferta.",
   "timestamp": "2025-07-11T15:30:00Z"
