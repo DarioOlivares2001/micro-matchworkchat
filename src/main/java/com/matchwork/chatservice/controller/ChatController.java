@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
+@RequestMapping("/api/messages")
 public class ChatController {
 
     private final ChatMessageRepository repository;
@@ -94,7 +95,7 @@ public class ChatController {
         }
     }
 
-    @GetMapping("/api/messages/{senderId}/{receiverId}")
+    @GetMapping("/{senderId}/{receiverId}")
     public List<ChatMessage> getMessages(@PathVariable Long senderId,
                                        @PathVariable Long receiverId) {
         try {
@@ -121,19 +122,19 @@ public class ChatController {
 
 
    
-    @GetMapping("/messages/unread/count/{userId}")
+    @GetMapping("/unread/count/{userId}")
     public Map<String, Long> getUnreadCount(@PathVariable Long userId) {
         long total = repository.countByReceiverIdAndSeenFalse(userId);
         return Map.of("total", total);
     }
 
  
-    @GetMapping("/messages/unread/by-sender/{userId}")
+    @GetMapping("/unread/by-sender/{userId}")
     public List<SenderUnreadCount> getUnreadBySender(@PathVariable Long userId) {
         return repository.countUnreadBySender(userId);
     }
 
-   @PutMapping("/messages/{senderId}/{receiverId}/seen")
+   @PutMapping("/{senderId}/{receiverId}/seen")
     public ResponseEntity<Void> markAsSeen(
         @PathVariable Long senderId,
         @PathVariable Long receiverId) {
@@ -168,7 +169,7 @@ public class ChatController {
 
 
 
-    @GetMapping("/api/messages/conversations/{userId}")
+    @GetMapping("/conversations/{userId}")
     public List<Long> getConversationPartners(@PathVariable Long userId) {
         return repository.findDistinctConversationPartners(userId);
     }
