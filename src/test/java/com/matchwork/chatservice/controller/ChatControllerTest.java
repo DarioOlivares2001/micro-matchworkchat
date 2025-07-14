@@ -14,7 +14,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(ChatController.class)
-public class ChatControllerTest {
+public class ChatControllerTest { 
 
     @Autowired
     private MockMvc mockMvc;

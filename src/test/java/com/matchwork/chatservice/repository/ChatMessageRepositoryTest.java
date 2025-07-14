@@ -8,7 +8,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DataMongoTest
-public class ChatMessageRepositoryTest {
+public class ChatMessageRepositoryTest { 
 
     @Autowired
     private ChatMessageRepository repository;
