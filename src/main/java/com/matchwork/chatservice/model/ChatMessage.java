@@ -85,7 +85,7 @@ public class ChatMessage {
     }
     
     public enum MessageType {
-        CHAT, JOIN, LEAVE, VIDEO_CALL // Agregar VIDEO_CALL
+        CHAT, JOIN, LEAVE, VIDEO_CALL 
     }
 
     public boolean isSeen() {
